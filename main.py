@@ -12,10 +12,6 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 
 
-nltk.download('punkt')
-nltk.download('punkt_tab')
-
-
 CONFUSION_SET = {
 
     'affect':    ['effect'],
@@ -253,6 +249,88 @@ def spellCheck(text):
                     print(f'  {org} -> UNKNOWN WORD no suggestions found')
 
         print(isWordArr)
+def spellCheckForWeb(text):
+    all_results = []
+    sentences=sent_tokenize(text)
+    for sentence in sentences:
+        tokens=word_tokenize(sentence)
+        textArr = []
+        for token in tokens:
+            clean=clean_token(token)
+            if clean is not None:
+                textArr.append(clean)
+        cleaned_words =[c for _, c in textArr]    
+        #print(textArr)
+        isWordArr=[]
+        for i, (org,clean) in enumerate(textArr):
+            if should_skip(org,clean,i):
+                continue
+            lemma_v = lemmatizer.lemmatize(clean, pos='v')
+            lemma_n = lemmatizer.lemmatize(clean, pos='n')
+            bigram_score = getBigramScore(clean, i, cleaned_words)
+            freq_score   = word_frequency(clean, 'en')
+
+
+            if clean in dictionary:
+                word_to_check = clean
+            elif lemma_n in dictionary:
+                word_to_check = lemma_n
+            elif lemma_v in dictionary:
+                word_to_check = lemma_v
+            else:
+                word_to_check = None
+
+            if word_to_check is not None:
+                isWordArr.append(True)
+                result = checkKnownWord(word_to_check, i, cleaned_words )
+                if result is not None:
+                    all_results.append({
+                        'word':        org,
+                        'type':        'context',
+                        'suggestions': [r[0] for r in result[:3]],
+                        'scores': {
+                            'bigram':    bigram_score,
+                            'frequency': freq_score,
+                            'combined':  round((0.4 * freq_score) + (0.6 * bigram_score), 4)
+                        },
+                        'weights': {
+                            'frequency': 0.4,
+                            'bigram':    0.6
+                        }
+                    })
+                    isWordArr.append(True)
+
+                    #print(f'  {org} -> CONTEXT ERROR did you mean: {result}')
+
+            else:
+                isWordArr.append(False)
+                suggestions=getSuggestions(clean,i,cleaned_words)
+                if suggestions:
+                    top = suggestions[0]
+                    all_results.append({
+                        'word':        org,
+                        'type':        'unknown',
+                        'suggestions': [s[0] for s in suggestions[:3]],
+                        'scores': {
+                            'edit_distance': top[1],
+                            'combined':      round(top[2], 4),
+                            'frequency':     round(word_frequency(top[0], 'en'), 6),
+                            'bigram':        getBigramScore(top[0], i, cleaned_words)
+                        },
+                        'weights': {
+                            'frequency': 0.4,
+                            'bigram':    0.6
+                        },
+                        'all_candidates': [
+                            {
+                                'word':     s[0],
+                                'distance': s[1],
+                                'score':    round(s[2], 4)
+                            }
+                            for s in suggestions
+                        ]
+                    })
+        return all_results
 
 if __name__=='__main__':
         nltk_data()

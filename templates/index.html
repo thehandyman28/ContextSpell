@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context Spell Checker</title>
+    <link rel="stylesheet" href="/static/style.css">
+
+</head>
+<body>
+<div class="container">
+
+    <h1>Context Spell Checker</h1>
+    <p class="subtitle">N-gram context scoring vs Hunspell — side by side</p>
+
+    <div class="input-section">
+        <textarea id="inputText" placeholder="Type or paste text here..." rows="8"></textarea>
+        <div class="button-row">
+            <button id="checkBtn" onclick="checkText()">Check Text</button>
+            <button id="clearBtn" onclick="clearAll()">Clear</button>
+        </div>
+    </div>
+
+    <div class="legend">
+        <span class="legend-item">
+            <span class="badge unknown">Unknown word</span> Spelling error
+        </span>
+        <span class="legend-item">
+            <span class="badge context">Context error</span> Wrong word for context
+        </span>
+        <span class="legend-item">
+            <span class="badge hunspell-only">Hunspell only</span> Missed by ContextSpell system
+        </span>
+        <span class="legend-item">
+            <span class="badge ContextSpell-only">ContextSpell only</span> Missed by Hunspell
+        </span>
+    </div>
+
+    <div id="loadingMsg" style="display:none" class="loading">
+        Checking text — this may take a moment...
+    </div>
+
+    <div id="noErrors" style="display:none" class="no-errors">
+        No errors found by either system.
+    </div>
+
+    <div id="resultsSection" style="display:none">
+
+        <div class="comparison-header">
+            <div class="col-header ContextSpell-header">
+                <h2>ContextSpell</h2>
+                <span class="col-subtitle">Edit distance + bigram context + confusion sets</span>
+            </div>
+            <div class="col-header hunspell-header">
+                <h2>Hunspell</h2>
+                <span class="col-subtitle">Dictionary lookup + affix rules</span>
+            </div>
+        </div>
+
+        <div class="comparison-body">
+
+            <div class="col ContextSpell-col">
+                <div class="highlighted-text" id="ContextSpellHighlighted"></div>
+                <div id="ContextSpellResults" class="results-list"></div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="col hunspell-col">
+                <div class="highlighted-text" id="hunspellHighlighted"></div>
+                <div id="hunspellResults" class="results-list"></div>
+            </div>
+
+        </div>
+
+        <div class="summary-row" id="summaryRow"></div>
+
+    </div>
+
+</div>
+<script src="/static/script.js"></script>
+</body>
+</html>
