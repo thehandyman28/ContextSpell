@@ -36,9 +36,9 @@ function renderResults(originalText, ContextSpellResults, hunspellResults) {
     document.getElementById('hunspellHighlighted').innerHTML =
         buildHighlightedText(originalText, hunspellResults, 'hunspell');
 
-    const ourEl = document.getElementById('ContextSpellResults');
-    ourEl.innerHTML = '';
-    ContextSpellResults.forEach(r => ourEl.appendChild(buildContextSpellCard(r)));  // ← fixed
+    const ContextSpellEl = document.getElementById('ContextSpellResults');
+    ContextSpellEl.innerHTML = '';
+    ContextSpellResults.forEach(r => ContextSpellEl.appendChild(buildContextSpellCard(r)));  // ← fixed
 
     const hunspellEl = document.getElementById('hunspellResults');
     hunspellEl.innerHTML = '';
@@ -189,7 +189,7 @@ function buildSummary(ContextSpell, hunspell) {
     document.getElementById('summaryRow').innerHTML = `
         <div class="summary-item">
             <span class="summary-num">${ContextSpell.length}</span>
-            <span class="summary-lbl">Our system flagged</span>
+            <span class="summary-lbl">ContextSpell system flagged</span>
         </div>
         <div class="summary-item">
             <span class="summary-num">${hunspell.length}</span>
@@ -201,7 +201,7 @@ function buildSummary(ContextSpell, hunspell) {
         </div>
         <div class="summary-item">
             <span class="summary-num" style="color:#3498db">${onlyContextSpell}</span>   <!-- ← fixed -->
-            <span class="summary-lbl">Only our system</span>
+            <span class="summary-lbl">Only ContextSpell system</span>
         </div>
         <div class="summary-item">
             <span class="summary-num" style="color:#27ae60">${onlyHunspell}</span>

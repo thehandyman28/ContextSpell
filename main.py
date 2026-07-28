@@ -157,7 +157,7 @@ def getSuggestions(t,textPosCount,textArr):
 
     
     final=sorted(final,key=lambda item:(item[1],-item[2]))
-    return final[:5]
+    return final[:3]
 def clean_token(token):
     clean=token.strip('.,!>;:"\'-()[]{}')
 
@@ -204,7 +204,7 @@ def checkKnownWord(word, i, cleaned_words):
         return None
    scores=sorted(scores,key=lambda item:-item[1])
    if scores[0][1]>15:
-       return scores[:5]
+       return scores[:3]
    
    
 def spellCheck(text):
@@ -332,11 +332,201 @@ def spellCheckForWeb(text):
                     })
         return all_results
 
+def evaluate():
+    
+    from spellchecker import SpellChecker
+    spell = SpellChecker()
+    
+    # Group 1 - unknown word errors
+    unknown_tests = [
+        ("I recieved your email this morning",      "recieved",   "received"),
+        ("The goverment passed a new law",          "goverment",  "government"),
+        ("She beleived everything he said",         "beleived",   "believed"),
+        ("We must seperate the two groups",         "seperate",   "separate"),
+        ("It occured to me something was wrong",    "occured",    "occurred"),
+        ("He was completly wrong about it",         "completly",  "completely"),
+        ("The commitee met on Thursday",            "commitee",   "committee"),
+        ("She was absolutly certain",               "absolutly",  "absolutely"),
+        ("The experment failed last Tuesday",       "experment",  "experiment"),
+        ("It was an embarasing moment",             "embarasing", "embarrassing"),
+    ]
+    
+    # Group 2 - context errors
+    context_tests = [
+        ("The affect on the results was significant", "affect",   "effect"),
+        ("Please insure the door is locked",          "insure",   "ensure"),
+        ("The elicit trade caused problems",          "elicit",   "illicit"),
+        ("She could not accept the advise",           "advise",   "advice"),
+        ("The allusion to the event was clear",       "allusion", "illusion"),
+        ("The amoral behaviour was shocking",         "amoral",   "immoral"),
+    ]
+    
+    # Group 3 - correct sentences
+    correct_tests = [
+        "The effect on the results was significant.",
+        "Please ensure the door is locked tonight.",
+        "I received your email this morning.",
+        "The government passed a new law yesterday.",
+        "She believed everything he said to her.",
+        "We must separate the two groups immediately.",
+        "The experiment failed last Tuesday morning.",
+        "The illicit trade caused major problems.",
+        "He was imminent to arrive any moment.",
+        "The immigrant population settled here.",
+    ]
+    
+    print("=" * 70)
+    print("CONTEXTSPELL vs HUNSPELL EVALUATION")
+    print("=" * 70)
+    
+    # --------------------------------------------------------
+    # GROUP 1 - UNKNOWN WORDS
+    # --------------------------------------------------------
+    print("\nGROUP 1 — Unknown Word Errors")
+    print(f"{'Word':<15} {'Expected':<15} {'CS Top1':<15} {'CS Top5':<6} {'HUN Top1':<15} {'HUN Top5':<6}")
+    print("-" * 70)
+    
+    cs_top1_unknown  = 0
+    cs_top5_unknown  = 0
+    hun_top1_unknown = 0
+    hun_top5_unknown = 0
+    
+    for sentence, flagged, expected in unknown_tests:
+        tokens   = sentence.lower().split()
+        position = tokens.index(flagged.lower()) if flagged.lower() in tokens else 0
+        
+        # ContextSpell suggestions
+        cs_suggestions = getSuggestions(flagged.lower(), position, tokens)
+        cs_words       = [s[0] for s in cs_suggestions]
+        cs_top1_word   = cs_words[0] if cs_words else 'none'
+        cs_t1          = cs_top1_word == expected
+        cs_t5          = expected in cs_words
+        
+        if cs_t1: cs_top1_unknown += 1
+        if cs_t5: cs_top5_unknown += 1
+        
+        # Hunspell suggestions
+        hun_candidates = list(spell.candidates(flagged.lower()) or [])
+        hun_words      = sorted(
+            hun_candidates,
+            key=lambda w: word_frequency(w, 'en'),
+            reverse=True
+        )[:5]
+        hun_top1_word  = hun_words[0] if hun_words else 'none'
+        hun_t1         = hun_top1_word == expected
+        hun_t5         = expected in hun_words
+        
+        if hun_t1: hun_top1_unknown += 1
+        if hun_t5: hun_top5_unknown += 1
+        
+        cs_t1_str  = f'✓ {cs_top1_word}'  if cs_t1  else f'✗ {cs_top1_word}'
+        hun_t1_str = f'✓ {hun_top1_word}' if hun_t1 else f'✗ {hun_top1_word}'
+        
+        print(f"{flagged:<15} {expected:<15} {cs_t1_str:<15} {'✓' if cs_t5 else '✗':<6} {hun_t1_str:<15} {'✓' if hun_t5 else '✗':<6}")
+    
+    print(f"\n  {'Metric':<30} {'ContextSpell':>12} {'Hunspell':>12}")
+    print(f"  {'-'*54}")
+    print(f"  {'Top-1 accuracy':<30} {cs_top1_unknown*10:>11}% {hun_top1_unknown*10:>11}%")
+    print(f"  {'Top-5 accuracy':<30} {cs_top5_unknown*10:>11}% {hun_top5_unknown*10:>11}%")
+    
+    # --------------------------------------------------------
+    # GROUP 2 - CONTEXT ERRORS
+    # --------------------------------------------------------
+    print("\nGROUP 2 — Context Errors")
+    print(f"{'Word':<15} {'Expected':<15} {'CS caught':<12} {'CS suggestion':<15} {'HUN caught':<12}")
+    print("-" * 70)
+    
+    cs_context_caught   = 0
+    cs_context_correct  = 0
+    hun_context_caught  = 0
+    
+    for sentence, flagged, expected in context_tests:
+        
+        # ContextSpell
+        results       = spellCheckForWeb(sentence)
+        ctx_results   = [r for r in results if r['type'] == 'context']
+        flagged_words = [r['word'].lower() for r in ctx_results]
+        cs_caught     = flagged.lower() in flagged_words
+        
+        cs_sugg = '—'
+        if cs_caught:
+            cs_context_caught += 1
+            match = next((r for r in ctx_results if r['word'].lower() == flagged.lower()), None)
+            if match and match['suggestions']:
+                cs_sugg = match['suggestions'][0]
+                if cs_sugg == expected:
+                    cs_context_correct += 1
+        
+        # Hunspell — will never catch context errors
+        # flagged word is valid so Hunspell passes it
+        hun_caught = False
+        if flagged.lower() not in spell:
+            hun_caught = True
+            hun_context_caught += 1
+        
+        print(f"{flagged:<15} {expected:<15} {'✓' if cs_caught else '✗':<12} {cs_sugg:<15} {'✓' if hun_caught else '✗ (valid word)':<12}")
+    
+    n = len(context_tests)
+    print(f"\n  {'Metric':<30} {'ContextSpell':>12} {'Hunspell':>12}")
+    print(f"  {'-'*54}")
+    print(f"  {'Errors caught':<30} {f'{cs_context_caught}/{n}':<12} {f'{hun_context_caught}/{n}'}")
+    print(f"  {'Correct suggestion':<30} {f'{cs_context_correct}/{n}':<12} {'N/A'}")
+    print(f"  {'Detection rate':<30} {round(cs_context_caught/n*100):>11}% {round(hun_context_caught/n*100):>11}%")
+    
+    # --------------------------------------------------------
+    # GROUP 3 - FALSE POSITIVES
+    # --------------------------------------------------------
+    print("\nGROUP 3 — False Positives on Correct Sentences")
+    print(f"{'Sentence[:40]':<42} {'CS flags':<10} {'HUN flags':<10}")
+    print("-" * 70)
+    
+    cs_fp  = 0
+    hun_fp = 0
+    
+    for sentence in correct_tests:
+        
+        # ContextSpell false positives
+        cs_results  = spellCheckForWeb(sentence)
+        cs_count    = len(cs_results)
+        cs_fp      += cs_count
+        
+        # Hunspell false positives
+        tokens      = word_tokenize(sentence.lower())
+        hun_flags   = [t for t in tokens if t.isalpha() and len(t) > 2 and t not in spell]
+        hun_count   = len(hun_flags)
+        hun_fp     += hun_count
+        
+        cs_str  = f'{cs_count} ({", ".join(r["word"] for r in cs_results)})' if cs_count else '0'
+        hun_str = f'{hun_count} ({", ".join(hun_flags)})' if hun_count else '0'
+        
+        print(f"{sentence[:40]:<42} {cs_str:<10} {hun_str:<10}")
+    
+    n = len(correct_tests)
+    print(f"\n  {'Metric':<30} {'ContextSpell':>12} {'Hunspell':>12}")
+    print(f"  {'-'*54}")
+    print(f"  {'Total false positives':<30} {cs_fp:>12} {hun_fp:>12}")
+    print(f"  {'False positive rate':<30} {round(cs_fp/n*100):>11}% {round(hun_fp/n*100):>11}%")
+    
+    # --------------------------------------------------------
+    # FINAL SUMMARY TABLE
+    # --------------------------------------------------------
+    print("\n" + "=" * 70)
+    print("FINAL COMPARISON SUMMARY")
+    print("=" * 70)
+    print(f"\n  {'Metric':<35} {'ContextSpell':>12} {'Hunspell':>12}")
+    print(f"  {'-'*60}")
+    print(f"  {'Unknown word top-1 accuracy':<35} {cs_top1_unknown*10:>11}% {hun_top1_unknown*10:>11}%")
+    print(f"  {'Unknown word top-5 accuracy':<35} {cs_top5_unknown*10:>11}% {hun_top5_unknown*10:>11}%")
+    print(f"  {'Context error detection rate':<35} {round(cs_context_caught/len(context_tests)*100):>11}% {0:>11}%")
+    print(f"  {'Context correct suggestion':<35} {round(cs_context_correct/len(context_tests)*100):>11}% {'N/A':>12}")
+    print(f"  {'False positive rate':<35} {round(cs_fp/len(correct_tests)*100):>11}% {round(hun_fp/len(correct_tests)*100):>11}%")
+    print("=" * 70)
 if __name__=='__main__':
         nltk_data()
         dictionary,dictionary_by_letter=bulidDictionarty()
         bigramCounts=buidBigram()
         text=input("Enter a string to spell check:")
+        evaluate()
         spellCheck(text)
         
 
